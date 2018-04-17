@@ -264,7 +264,7 @@ func (g *micro) generateClientMethod(reqServ, servName, serviceDescVar string, m
 	g.P()
 
 	g.P("type ", streamType, " struct {")
-	g.P("stream ", clientPkg, ".Streamer")
+	g.P("stream ", clientPkg, ".Stream")
 	g.P("}")
 	g.P()
 
@@ -343,7 +343,7 @@ func (g *micro) generateServerMethod(servName string, method *pb.MethodDescripto
 		return hname
 	}
 	streamType := unexport(servName) + methName + "Stream"
-	g.P("func (h *", servName, ") ", methName, "(ctx ", contextPkg, ".Context, stream server.Streamer) error {")
+	g.P("func (h *", servName, ") ", methName, "(ctx ", contextPkg, ".Context, stream server.Stream) error {")
 	if !method.GetClientStreaming() {
 		g.P("m := new(", inType, ")")
 		g.P("if err := stream.Recv(m); err != nil { return err }")
@@ -375,7 +375,7 @@ func (g *micro) generateServerMethod(servName string, method *pb.MethodDescripto
 	g.P()
 
 	g.P("type ", streamType, " struct {")
-	g.P("stream ", serverPkg, ".Streamer")
+	g.P("stream ", serverPkg, ".Stream")
 	g.P("}")
 	g.P()
 
