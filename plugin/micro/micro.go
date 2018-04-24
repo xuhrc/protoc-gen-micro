@@ -111,10 +111,11 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 		serviceName = pkg
 	}
 	servName := generator.CamelCase(origServName)
+	servAlias := servName
 
 	// strip suffix
 	if strings.HasSuffix(servName, "Service") {
-		servName = strings.TrimSuffix(servName, "Service")
+		servAlias = strings.TrimSuffix(servName, "Service")
 	}
 
 	g.P()
@@ -122,7 +123,7 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.P()
 
 	// Client interface.
-	g.P("type ", servName, "Service interface {")
+	g.P("type ", servAlias, "Service interface {")
 	for i, method := range service.Method {
 		g.gen.PrintComments(fmt.Sprintf("%s,2,%d", path, i)) // 2 means method in a service.
 		g.P(g.generateClientSignature(servName, method))
@@ -131,21 +132,21 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.P()
 
 	// Client structure.
-	g.P("type ", unexport(servName), "Service struct {")
+	g.P("type ", unexport(servAlias), "Service struct {")
 	g.P("c ", clientPkg, ".Client")
 	g.P("serviceName string")
 	g.P("}")
 	g.P()
 
 	// NewClient factory.
-	g.P("func New", servName, "Service (serviceName string, c ", clientPkg, ".Client) ", servName, "Service {")
+	g.P("func New", servAlias, "Service (serviceName string, c ", clientPkg, ".Client) ", servAlias, "Service {")
 	g.P("if c == nil {")
 	g.P("c = ", clientPkg, ".NewClient()")
 	g.P("}")
 	g.P("if len(serviceName) == 0 {")
 	g.P(`serviceName = "`, serviceName, `"`)
 	g.P("}")
-	g.P("return &", unexport(servName), "Service{")
+	g.P("return &", unexport(servAlias), "Service{")
 	g.P("c: c,")
 	g.P("serviceName: serviceName,")
 	g.P("}")
@@ -225,7 +226,15 @@ func (g *micro) generateClientMethod(reqServ, servName, serviceDescVar string, m
 	inType := g.typeName(method.GetInputType())
 	outType := g.typeName(method.GetOutputType())
 
-	g.P("func (c *", unexport(servName), "Service) ", g.generateClientSignature(servName, method), "{")
+	servAlias := servName
+
+	// strip suffix
+	if strings.HasSuffix(servName, "Service") {
+		servAlias = strings.TrimSuffix(servName, "Service")
+	}
+
+
+	g.P("func (c *", unexport(servAlias), "Service) ", g.generateClientSignature(servName, method), "{")
 	if !method.GetServerStreaming() && !method.GetClientStreaming() {
 		g.P(`req := c.c.NewRequest(c.serviceName, "`, reqMethod, `", in)`)
 		g.P("out := new(", outType, ")")
@@ -237,7 +246,7 @@ func (g *micro) generateClientMethod(reqServ, servName, serviceDescVar string, m
 		g.P()
 		return
 	}
-	streamType := unexport(servName) + methName + "Service"
+	streamType := unexport(servAlias) + methName + "Service"
 	g.P(`req := c.c.NewRequest(c.serviceName, "`, reqMethod, `", &`, inType, `{})`)
 	g.P("stream, err := c.c.Stream(ctx, req, opts...)")
 	g.P("if err != nil { return nil, err }")
