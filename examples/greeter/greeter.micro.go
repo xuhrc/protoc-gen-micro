@@ -18,9 +18,9 @@ import fmt "fmt"
 import math "math"
 
 import (
+	context "context"
 	client "github.com/micro/go-micro/client"
 	server "github.com/micro/go-micro/server"
-	context "context"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -80,13 +80,20 @@ type GreeterHandler interface {
 }
 
 func RegisterGreeterHandler(s server.Server, hdlr GreeterHandler, opts ...server.HandlerOption) {
-	s.Handle(s.NewHandler(&Greeter{hdlr}, opts...))
+	type greeter interface {
+		Hello(ctx context.Context, in *Request, out *Response) error
+	}
+	type Greeter struct {
+		greeter
+	}
+	h := &greeterHandler{hdlr}
+	s.Handle(s.NewHandler(&Greeter{h}, opts...))
 }
 
-type Greeter struct {
+type greeterHandler struct {
 	GreeterHandler
 }
 
-func (h *Greeter) Hello(ctx context.Context, in *Request, out *Response) error {
+func (h *greeterHandler) Hello(ctx context.Context, in *Request, out *Response) error {
 	return h.GreeterHandler.Hello(ctx, in, out)
 }
