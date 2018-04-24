@@ -50,7 +50,7 @@ type greeterService struct {
 	serviceName string
 }
 
-func GreeterServiceClient(serviceName string, c client.Client) GreeterService {
+func NewGreeterService(serviceName string, c client.Client) GreeterService {
 	if c == nil {
 		c = client.NewClient()
 	}

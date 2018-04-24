@@ -112,6 +112,11 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 	}
 	servName := generator.CamelCase(origServName)
 
+	// strip suffix
+	if strings.HasSuffix(servName, "Service") {
+		servName = strings.TrimSuffix(servName, "Service")
+	}
+
 	g.P()
 	g.P("// Client API for ", servName, " service")
 	g.P()
@@ -133,7 +138,7 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.P()
 
 	// NewClient factory.
-	g.P("func ", servName, "ServiceClient (serviceName string, c ", clientPkg, ".Client) ", servName, "Service {")
+	g.P("func New", servName, "Service (serviceName string, c ", clientPkg, ".Client) ", servName, "Service {")
 	g.P("if c == nil {")
 	g.P("c = ", clientPkg, ".NewClient()")
 	g.P("}")
