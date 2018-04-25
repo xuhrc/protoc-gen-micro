@@ -111,13 +111,19 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 		serviceName = pkg
 	}
 	servName := generator.CamelCase(origServName)
+	servAlias := servName
+
+	// strip suffix
+	if strings.HasSuffix(servName, "Service") {
+		servAlias = strings.TrimSuffix(servName, "Service")
+	}
 
 	g.P()
 	g.P("// Client API for ", servName, " service")
 	g.P()
 
 	// Client interface.
-	g.P("type ", servName, "Service interface {")
+	g.P("type ", servAlias, "Service interface {")
 	for i, method := range service.Method {
 		g.gen.PrintComments(fmt.Sprintf("%s,2,%d", path, i)) // 2 means method in a service.
 		g.P(g.generateClientSignature(servName, method))
@@ -126,21 +132,21 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 	g.P()
 
 	// Client structure.
-	g.P("type ", unexport(servName), "Service struct {")
+	g.P("type ", unexport(servAlias), "Service struct {")
 	g.P("c ", clientPkg, ".Client")
 	g.P("serviceName string")
 	g.P("}")
 	g.P()
 
 	// NewClient factory.
-	g.P("func ", servName, "ServiceClient (serviceName string, c ", clientPkg, ".Client) ", servName, "Service {")
+	g.P("func New", servAlias, "Service (serviceName string, c ", clientPkg, ".Client) ", servAlias, "Service {")
 	g.P("if c == nil {")
 	g.P("c = ", clientPkg, ".NewClient()")
 	g.P("}")
 	g.P("if len(serviceName) == 0 {")
 	g.P(`serviceName = "`, serviceName, `"`)
 	g.P("}")
-	g.P("return &", unexport(servName), "Service{")
+	g.P("return &", unexport(servAlias), "Service{")
 	g.P("c: c,")
 	g.P("serviceName: serviceName,")
 	g.P("}")
@@ -175,17 +181,35 @@ func (g *micro) generateService(file *generator.FileDescriptor, service *pb.Serv
 	}
 	g.P("}")
 	g.P()
+
 	// Server registration.
 	g.P("func Register", servName, "Handler(s ", serverPkg, ".Server, hdlr ", serverType, ", opts ...", serverPkg, ".HandlerOption) {")
-	g.P("s.Handle(s.NewHandler(&", servName, "{hdlr}, opts...))")
+	g.P("type ", unexport(servName), " interface {")
+
+	// generate interface methods
+	for _, method := range service.Method {
+		methName := generator.CamelCase(method.GetName())
+		inType := g.typeName(method.GetInputType())
+		outType := g.typeName(method.GetOutputType())
+
+		if !method.GetServerStreaming() && !method.GetClientStreaming() {
+			g.P(methName, "(ctx ", contextPkg, ".Context, in *", inType, ", out *", outType, ") error")
+			continue
+		}
+		g.P(methName, "(ctx ", contextPkg, ".Context, stream server.Stream) error")
+	}
+	g.P("}")
+	g.P("type ", servName, " struct {")
+	g.P(unexport(servName))
+	g.P("}")
+	g.P("h := &", unexport(servName), "Handler{hdlr}")
+	g.P("s.Handle(s.NewHandler(&", servName, "{h}, opts...))")
 	g.P("}")
 	g.P()
 
-	// Handler type
-	g.P("type ", servName, " struct {")
+	g.P("type ", unexport(servName), "Handler struct {")
 	g.P(serverType)
 	g.P("}")
-	g.P()
 
 	// Server handler implementations.
 	var handlerNames []string
@@ -220,7 +244,14 @@ func (g *micro) generateClientMethod(reqServ, servName, serviceDescVar string, m
 	inType := g.typeName(method.GetInputType())
 	outType := g.typeName(method.GetOutputType())
 
-	g.P("func (c *", unexport(servName), "Service) ", g.generateClientSignature(servName, method), "{")
+	servAlias := servName
+
+	// strip suffix
+	if strings.HasSuffix(servName, "Service") {
+		servAlias = strings.TrimSuffix(servName, "Service")
+	}
+
+	g.P("func (c *", unexport(servAlias), "Service) ", g.generateClientSignature(servName, method), "{")
 	if !method.GetServerStreaming() && !method.GetClientStreaming() {
 		g.P(`req := c.c.NewRequest(c.serviceName, "`, reqMethod, `", in)`)
 		g.P("out := new(", outType, ")")
@@ -232,7 +263,7 @@ func (g *micro) generateClientMethod(reqServ, servName, serviceDescVar string, m
 		g.P()
 		return
 	}
-	streamType := unexport(servName) + methName + "Service"
+	streamType := unexport(servAlias) + methName + "Service"
 	g.P(`req := c.c.NewRequest(c.serviceName, "`, reqMethod, `", &`, inType, `{})`)
 	g.P("stream, err := c.c.Stream(ctx, req, opts...)")
 	g.P("if err != nil { return nil, err }")
@@ -336,14 +367,14 @@ func (g *micro) generateServerMethod(servName string, method *pb.MethodDescripto
 	outType := g.typeName(method.GetOutputType())
 
 	if !method.GetServerStreaming() && !method.GetClientStreaming() {
-		g.P("func (h *", servName, ") ", methName, "(ctx ", contextPkg, ".Context, in *", inType, ", out *", outType, ") error {")
+		g.P("func (h *", unexport(servName), "Handler) ", methName, "(ctx ", contextPkg, ".Context, in *", inType, ", out *", outType, ") error {")
 		g.P("return h.", serveType, ".", methName, "(ctx, in, out)")
 		g.P("}")
 		g.P()
 		return hname
 	}
 	streamType := unexport(servName) + methName + "Stream"
-	g.P("func (h *", servName, ") ", methName, "(ctx ", contextPkg, ".Context, stream server.Stream) error {")
+	g.P("func (h *", unexport(servName), "Handler) ", methName, "(ctx ", contextPkg, ".Context, stream server.Stream) error {")
 	if !method.GetClientStreaming() {
 		g.P("m := new(", inType, ")")
 		g.P("if err := stream.Recv(m); err != nil { return err }")
