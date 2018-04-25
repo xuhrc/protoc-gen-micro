@@ -46,25 +46,25 @@ type GreeterService interface {
 }
 
 type greeterService struct {
-	c           client.Client
-	serviceName string
+	c    client.Client
+	name string
 }
 
-func NewGreeterService(serviceName string, c client.Client) GreeterService {
+func NewGreeterService(name string, c client.Client) GreeterService {
 	if c == nil {
 		c = client.NewClient()
 	}
-	if len(serviceName) == 0 {
-		serviceName = "greeter"
+	if len(name) == 0 {
+		name = "greeter"
 	}
 	return &greeterService{
-		c:           c,
-		serviceName: serviceName,
+		c:    c,
+		name: name,
 	}
 }
 
 func (c *greeterService) Hello(ctx context.Context, in *Request, opts ...client.CallOption) (*Response, error) {
-	req := c.c.NewRequest(c.serviceName, "Greeter.Hello", in)
+	req := c.c.NewRequest(c.name, "Greeter.Hello", in)
 	out := new(Response)
 	err := c.c.Call(ctx, req, out, opts...)
 	if err != nil {
