@@ -53,6 +53,29 @@ Your output result should be:
 
 The micro generated code includes clients and handlers which reduce boiler plate code
 
+### Server
+
+Register the handler with your micro server
+
+```go
+type Greeter struct{}
+
+func (g *Greeter) Hello(ctx context.Context, req *proto.Request, rsp *proto.Response) error {
+	rsp.Msg = "Hello " + req.Name
+	return nil
+}
+
+proto.RegisterGreeterHandler(service.Server(), &Greeter{})
+```
+
+### Client
+
+Create a service client with your micro client
+
+```go
+client := proto.NewSayService("greeter", service.Client())
+```
+
 ## LICENSE
 
 protoc-gen-micro is a liberal reuse of protoc-gen-go hence we maintain the original license 
