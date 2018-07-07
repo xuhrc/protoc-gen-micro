@@ -73,7 +73,7 @@ proto.RegisterGreeterHandler(service.Server(), &Greeter{})
 Create a service client with your micro client
 
 ```go
-client := proto.NewSayService("greeter", service.Client())
+client := proto.NewGreeterService("greeter", service.Client())
 ```
 
 ## LICENSE
