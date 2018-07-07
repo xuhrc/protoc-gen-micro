@@ -53,7 +53,7 @@ Your output result should be:
 
 The micro generated code includes clients and handlers which reduce boiler plate code
 
-### Server
+### Server
 
 Register the handler with your micro server
 
@@ -68,7 +68,7 @@ func (g *Greeter) Hello(ctx context.Context, req *proto.Request, rsp *proto.Resp
 proto.RegisterGreeterHandler(service.Server(), &Greeter{})
 ```
 
-### Client
+### Client
 
 Create a service client with your micro client
 
