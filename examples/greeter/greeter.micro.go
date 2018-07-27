@@ -79,7 +79,7 @@ type GreeterHandler interface {
 	Hello(context.Context, *Request, *Response) error
 }
 
-func RegisterGreeterHandler(s server.Server, hdlr GreeterHandler, opts ...server.HandlerOption) {
+func RegisterGreeterHandler(s server.Server, hdlr GreeterHandler, opts ...server.HandlerOption) error {
 	type greeter interface {
 		Hello(ctx context.Context, in *Request, out *Response) error
 	}
@@ -87,7 +87,7 @@ func RegisterGreeterHandler(s server.Server, hdlr GreeterHandler, opts ...server
 		greeter
 	}
 	h := &greeterHandler{hdlr}
-	s.Handle(s.NewHandler(&Greeter{h}, opts...))
+	return s.Handle(s.NewHandler(&Greeter{h}, opts...))
 }
 
 type greeterHandler struct {
