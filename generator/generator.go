@@ -691,7 +691,16 @@ func RegisterUniquePackageName(pkg string, f *FileDescriptor) string {
 	// Convert dots to underscores before finding a unique alias.
 	pkg = strings.Map(badToUnderscore, pkg)
 
-	for i, orig := 1, pkg; pkgNamesInUse[pkg]; i++ {
+	// Check to see if this file is in the same directory.
+	inLocalPackage := false
+	if f != nil {
+		if path.Dir(*f.Name) == "." {
+			// File is in the local package.
+			inLocalPackage = true
+		}
+	}
+
+	for i, orig := 1, pkg; pkgNamesInUse[pkg] && !inLocalPackage; i++ {
 		// It's a duplicate; must rename.
 		pkg = orig + strconv.Itoa(i)
 	}
@@ -817,7 +826,7 @@ AllFiles:
 		}
 		// The file is a dependency, so we want to ignore its go_package option
 		// because that is only relevant for its specific generated output.
-		pkg := f.GetPackage()
+		pkg, _ := f.goPackageName()
 		if pkg == "" {
 			pkg = baseName(*f.Name)
 		}
@@ -1353,7 +1362,8 @@ func (g *Generator) generateImports() {
 	for i, s := range g.file.Dependency {
 		fd := g.fileByName(s)
 		// Do not import our own package.
-		if fd.PackageName() == g.packageName {
+		pkgName, _ := fd.goPackageName()
+		if pkgName == g.packageName {
 			continue
 		}
 		filename := fd.goFileName(g.pathType)
@@ -1371,7 +1381,7 @@ func (g *Generator) generateImports() {
 		// We need to import all the dependencies, even if we don't reference them,
 		// because other code and tools depend on having the full transitive closure
 		// of protocol buffer types in the binary.
-		pname := fd.PackageName()
+		pname, _ := fd.goPackageName()
 		if _, ok := g.usedPackages[pname]; !ok {
 			pname = "_"
 		}
@@ -1415,7 +1425,8 @@ func (g *Generator) generateImported(id *ImportedDescriptor) {
 		}
 	}
 	g.P("// ", sn, " from public import ", filename)
-	g.usedPackages[df.PackageName()] = sn
+	pkgName, _ := df.goPackageName()
+	g.usedPackages[pkgName] = sn
 
 	for _, sym := range df.exported[id.o] {
 		sym.GenerateAlias(g, df.PackageName())
