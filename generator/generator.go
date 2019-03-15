@@ -1425,8 +1425,7 @@ func (g *Generator) generateImported(id *ImportedDescriptor) {
 		}
 	}
 	g.P("// ", sn, " from public import ", filename)
-	pkgName, _ := df.goPackageName()
-	g.usedPackages[pkgName] = sn
+	g.usedPackages[df.PackageName()] = sn
 
 	for _, sym := range df.exported[id.o] {
 		sym.GenerateAlias(g, df.PackageName())
