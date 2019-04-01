@@ -20,7 +20,7 @@
 // THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
 // "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
 // LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGfHT
+// A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
 // OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
 // SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
 // LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
@@ -58,8 +58,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/golang/protobuf/proto"
-	"github.com/micro/protoc-gen-micro/generator/internal/remap"
-
 	"github.com/golang/protobuf/protoc-gen-go/descriptor"
 	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
 )
@@ -426,8 +424,6 @@ type Generator struct {
 	indent           string
 	pathType         pathType // How to generate output filenames.
 	writeOutput      bool
-	annotateCode     bool                                       // whether to store annotations
-	annotations      []*descriptor.GeneratedCodeInfo_Annotation // annotations to store
 }
 
 type pathType int
@@ -492,10 +488,6 @@ func (g *Generator) CommandLineParameters(parameter string) {
 			}
 		case "plugins":
 			pluginList = v
-		case "annotate_code":
-			if v == "true" {
-				g.annotateCode = true
-			}
 		default:
 			if len(k) > 0 && k[0] == 'M' {
 				g.ImportMap[k[1:]] = v
@@ -1033,26 +1025,8 @@ func (g *Generator) P(str ...interface{}) {
 	for _, v := range str {
 		switch v := v.(type) {
 		case *AnnotatedAtoms:
-			begin := int32(g.Len())
 			for _, v := range v.atoms {
 				g.printAtom(v)
-			}
-			if g.annotateCode {
-				end := int32(g.Len())
-				var path []int32
-				for _, token := range strings.Split(v.path, ",") {
-					val, err := strconv.ParseInt(token, 10, 32)
-					if err != nil {
-						g.Fail("could not parse proto AST path: ", err.Error())
-					}
-					path = append(path, int32(val))
-				}
-				g.annotations = append(g.annotations, &descriptor.GeneratedCodeInfo_Annotation{
-					Path:       path,
-					SourceFile: &v.source,
-					Begin:      &begin,
-					End:        &end,
-				})
 			}
 		default:
 			g.printAtom(v)
@@ -1092,7 +1066,6 @@ func (g *Generator) GenerateAllFiles() {
 	}
 	for _, file := range g.allFiles {
 		g.Reset()
-		g.annotations = nil
 		g.writeOutput = genFileMap[file]
 		g.generate(file)
 		if !g.writeOutput {
@@ -1103,14 +1076,6 @@ func (g *Generator) GenerateAllFiles() {
 			Name:    proto.String(fname),
 			Content: proto.String(g.String()),
 		})
-		if g.annotateCode {
-			// Store the generated code annotations in text, as the protoc plugin protocol requires that
-			// strings contain valid UTF-8.
-			g.Response.File = append(g.Response.File, &plugin.CodeGeneratorResponse_File{
-				Name:    proto.String(file.goFileName(g.pathType) + ".meta"),
-				Content: proto.String(proto.CompactTextString(&descriptor.GeneratedCodeInfo{Annotation: g.annotations})),
-			})
-		}
 	}
 }
 
@@ -1154,29 +1119,17 @@ func (g *Generator) generate(file *FileDescriptor) {
 
 	// Generate header and imports last, though they appear first in the output.
 	rem := g.Buffer
-	remAnno := g.annotations
 	g.Buffer = new(bytes.Buffer)
-	g.annotations = nil
 	g.generateHeader()
 	g.generateImports()
 	if !g.writeOutput {
 		return
-	}
-	// Adjust the offsets for annotations displaced by the header and imports.
-	for _, anno := range remAnno {
-		*anno.Begin += int32(g.Len())
-		*anno.End += int32(g.Len())
-		g.annotations = append(g.annotations, anno)
 	}
 	g.Write(rem.Bytes())
 
 	// Reformat generated code and patch annotation locations.
 	fset := token.NewFileSet()
 	original := g.Bytes()
-	if g.annotateCode {
-		// make a copy independent of g; we'll need it after Reset.
-		original = append([]byte(nil), original...)
-	}
 	fileAST, err := parser.ParseFile(fset, "", original, parser.ParseComments)
 	if err != nil {
 		// Print out the bad code with line numbers.
@@ -1194,20 +1147,6 @@ func (g *Generator) generate(file *FileDescriptor) {
 	err = (&printer.Config{Mode: printer.TabIndent | printer.UseSpaces, Tabwidth: 8}).Fprint(g, fset, fileAST)
 	if err != nil {
 		g.Fail("generated Go source code could not be reformatted:", err.Error())
-	}
-	if g.annotateCode {
-		m, err := remap.Compute(original, g.Bytes())
-		if err != nil {
-			g.Fail("formatted generated Go source code could not be mapped back to the original code:", err.Error())
-		}
-		for _, anno := range g.annotations {
-			new, ok := m.Find(int(*anno.Begin), int(*anno.End))
-			if !ok {
-				g.Fail("span in formatted generated Go source code could not be mapped back to the original code")
-			}
-			*anno.Begin = int32(new.Pos)
-			*anno.End = int32(new.End)
-		}
 	}
 }
 
