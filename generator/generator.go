@@ -1108,9 +1108,6 @@ func (g *Generator) generate(file *FileDescriptor) {
 	for _, td := range g.file.imp {
 		g.generateImported(td)
 	}
-	for _, enum := range g.file.enum {
-		g.generateEnum(enum)
-	}
 
 	g.generateInitFunction()
 
