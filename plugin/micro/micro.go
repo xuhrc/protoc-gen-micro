@@ -40,6 +40,7 @@ var (
 	contextPkg string
 	clientPkg  string
 	serverPkg  string
+	pkgImports map[generator.GoPackageName]bool
 )
 
 // Init initializes the plugin.
@@ -82,7 +83,7 @@ func (g *micro) Generate(file *generator.FileDescriptor) {
 }
 
 // GenerateImports generates the import declaration for this file.
-func (g *micro) GenerateImports(file *generator.FileDescriptor) {
+func (g *micro) GenerateImports(file *generator.FileDescriptor, imports map[generator.GoImportPath]generator.GoPackageName) {
 	if len(file.FileDescriptorProto.Service) == 0 {
 		return
 	}
@@ -92,6 +93,13 @@ func (g *micro) GenerateImports(file *generator.FileDescriptor) {
 	g.P(serverPkg, " ", strconv.Quote(path.Join(g.gen.ImportPrefix, serverPkgPath)))
 	g.P(")")
 	g.P()
+
+	// We need to keep track of imported packages to make sure we don't produce
+	// a name collision when generating types.
+	pkgImports = make(map[generator.GoPackageName]bool)
+	for _, name := range imports {
+		pkgImports[name] = true
+	}
 }
 
 // reservedClientName records whether a client name is reserved on the client side.
@@ -103,7 +111,11 @@ func unexport(s string) string {
 	if len(s) == 0 {
 		return ""
 	}
-	return strings.ToLower(s[:1]) + s[1:]
+	name := strings.ToLower(s[:1]) + s[1:]
+	if pkgImports[generator.GoPackageName(name)] {
+		return name + "_"
+	}
+	return name
 }
 
 // generateService generates all the code for the named service.
