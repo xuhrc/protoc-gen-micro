@@ -81,7 +81,7 @@ type Plugin interface {
 	Generate(file *FileDescriptor)
 	// GenerateImports produces the import declarations for this file.
 	// It is called after Generate.
-	GenerateImports(file *FileDescriptor)
+	GenerateImports(file *FileDescriptor, imports map[GoImportPath]GoPackageName)
 }
 
 var plugins []Plugin
@@ -1254,7 +1254,7 @@ func (g *Generator) generateImports() {
 	g.P()
 	// TODO: may need to worry about uniqueness across plugins
 	for _, p := range plugins {
-		p.GenerateImports(g.file)
+		p.GenerateImports(g.file, imports)
 		g.P()
 	}
 	g.P("// Reference imports to suppress errors if they are not otherwise used.")
