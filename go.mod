@@ -1,4 +1,4 @@
-module github.com/xuhrc/protoc-gen-micro
+module github.com/micro/protoc-gen-micro
 
 require (
 	github.com/armon/circbuf v0.0.0-20190214190532-5111143e8da2 // indirect
