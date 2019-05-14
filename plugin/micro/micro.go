@@ -385,6 +385,11 @@ func (g *micro) generateServerMethod(servName string, method *pb.MethodDescripto
 
 	if !method.GetServerStreaming() && !method.GetClientStreaming() {
 		g.P("func (h *", unexport(servName), "Handler) ", methName, "(ctx ", contextPkg, ".Context, in *", inType, ", out *", outType, ") error {")
+		g.P("err := in.Validate()")
+		g.P("if err != nil {")
+		g.P("out.Status = status.Errorf(codes.InvalidArgument, fmt.Sprintf(\"params invalid, error=\", err.Error()))")
+		g.P("return nil")
+		g.P("}")
 		g.P("return h.", serveType, ".", methName, "(ctx, in, out)")
 		g.P("}")
 		g.P()
