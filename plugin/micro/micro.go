@@ -91,6 +91,7 @@ func (g *micro) GenerateImports(file *generator.FileDescriptor, imports map[gene
 	g.P(contextPkg, " ", strconv.Quote(path.Join(g.gen.ImportPrefix, contextPkgPath)))
 	g.P(clientPkg, " ", strconv.Quote(path.Join(g.gen.ImportPrefix, clientPkgPath)))
 	g.P(serverPkg, " ", strconv.Quote(path.Join(g.gen.ImportPrefix, serverPkgPath)))
+	g.P("\"google.golang.org/grpc/codes\"")
 	g.P(")")
 	g.P()
 
@@ -387,7 +388,9 @@ func (g *micro) generateServerMethod(servName string, method *pb.MethodDescripto
 		g.P("func (h *", unexport(servName), "Handler) ", methName, "(ctx ", contextPkg, ".Context, in *", inType, ", out *", outType, ") error {")
 		g.P("err := in.Validate()")
 		g.P("if err != nil {")
-		g.P("out.Status = status.Errorf(codes.InvalidArgument, fmt.Sprintf(\"params invalid, error=\", err.Error()))")
+		g.P("out.Status = &RpcStatus{}")
+		g.P("out.Status.Code = uint32(codes.InvalidArgument)")
+		g.P("out.Status.Msg = fmt.Sprintf(\"params invalid, error=%s\", err.Error())")
 		g.P("return nil")
 		g.P("}")
 		g.P("return h.", serveType, ".", methName, "(ctx, in, out)")
